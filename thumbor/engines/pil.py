@@ -233,6 +233,22 @@ class Engine(BaseEngine):
     def flip_horizontally(self):
         self.image = self.image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
 
+    def restore_gif_transparency(self):
+        # quantize() leaves the alpha in the palette but does not set
+        # info["transparency"], which is what the GIF writer looks at.
+        if self.image.mode != "P" or "transparency" in self.image.info:
+            return
+
+        palette = self.image.getpalette("RGBA")
+
+        if not palette:
+            return
+
+        alphas = palette[3::4]
+
+        if 0 in alphas:
+            self.image.info["transparency"] = alphas.index(0)
+
     def get_default_extension(self):
         # extension is not present => force JPEG or PNG
 
@@ -277,6 +293,9 @@ class Engine(BaseEngine):
                     else None
                 )
                 self.image = self.image.quantize(method=quantize_method)
+
+                if requested_extension == ".gif":
+                    self.restore_gif_transparency()
 
         ext = requested_extension or self.get_default_extension()
 
